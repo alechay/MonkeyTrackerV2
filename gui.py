@@ -3,6 +3,8 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import datetime
 import os
+import pandas as pd
+from openpyxl import load_workbook
 
 class MainWindow(QMainWindow):
     
@@ -53,30 +55,31 @@ class EnterData(QMainWindow):
         self.today, self.diff, self.today2 = self.get_day()
         self.date = QLabel(f"Today is {self.today}")
         self.day = QLabel(f"Day {self.diff}")
+        self.check = QLabel()
+        if self.repeat_day() == True:
+            self.check.setText("Entry has already been submitted for this date")
+            self.check.setStyleSheet("color: red;")
         self.l1 = QLabel("Weight (kg):")
         self.input_weight = QLineEdit()
         self.l2 = QLabel("Water (ml):")
         self.input_water = QLineEdit()
         self.l3 = QLabel("Fruit?")
-        self.button_group = QButtonGroup()
         self.yes = QRadioButton("Yes")
-        self.button_group.addButton(self.yes, 1)
         self.no = QRadioButton("No")
-        self.button_group.addButton(self.no, 2)
-        self.button_group.buttonClicked[int].connect(self.on_button_clicked)
         self.submit_button = QPushButton("Submit")
         self.submit_button.clicked.connect(self.submitMethod)
 
         self.layout.addWidget(self.date, 0, 0)
         self.layout.addWidget(self.day, 1, 0)
-        self.layout.addWidget(self.l1, 2, 0)
-        self.layout.addWidget(self.input_weight, 3, 0)
-        self.layout.addWidget(self.l2, 4, 0)
-        self.layout.addWidget(self.input_water, 5, 0)
-        self.layout.addWidget(self.l3, 6, 0)
-        self.layout.addWidget(self.yes, 7, 0)
-        self.layout.addWidget(self.no, 8, 0)
-        self.layout.addWidget(self.submit_button, 9, 0)
+        self.layout.addWidget(self.check, 2, 0)
+        self.layout.addWidget(self.l1, 3, 0)
+        self.layout.addWidget(self.input_weight, 4, 0)
+        self.layout.addWidget(self.l2, 5, 0)
+        self.layout.addWidget(self.input_water, 6, 0)
+        self.layout.addWidget(self.l3, 7, 0)
+        self.layout.addWidget(self.yes, 8, 0)
+        self.layout.addWidget(self.no, 9, 0)
+        self.layout.addWidget(self.submit_button, 10, 0)
 
         self.widget.setLayout(self.layout)
         self.setCentralWidget(self.widget)
@@ -87,14 +90,15 @@ class EnterData(QMainWindow):
         today1 = today.strftime("%B %d, %Y")
         today2 = today.strftime(datetimeFormat)
 
-        # read csv
-        first_date = "2020-06-18"
-        if first_date == "":
-            date = datetime.date.today()
-            date1 = date.strftime(datetimeFormat)
-        else:
+        dirname = os.path.dirname(os.path.realpath(__file__))
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            reader = pd.read_excel(f'{dirname}/aero.xlsx')
+            first_date = reader['Date'][0]
             date = datetime.datetime.strptime(first_date, datetimeFormat).date()
-            date1 = date.strftime(datetimeFormat)
+            # date1 = date.strftime(datetimeFormat)
+        else:
+            date = datetime.date.today()
+            # date1 = date.strftime(datetimeFormat)
         
         diff = today - date
         diff1 = diff.days + 1
@@ -102,15 +106,57 @@ class EnterData(QMainWindow):
         return today1, diff1, today2
 
     def submitMethod(self):
-        if os.path.exists("aero.xlsx"):
-            print(self.today2, self.diff)
+        dirname = os.path.dirname(os.path.realpath(__file__))
+        fruit = self.is_toggled()
+        df = pd.DataFrame(
+        {'Date': [self.today2],
+        'Day': [self.diff],
+        'Weight': [self.input_weight.text()],
+        'Water': [self.input_water.text()],
+        'Fruit': [fruit]})
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            reader = pd.read_excel(f"{dirname}/aero.xlsx")
+            if self.today2 in list(reader['Date']):
+                self.alert = QMessageBox()
+                self.alert.setText("Entry has already been submitted for this date")
+                self.alert.exec_()
+            elif fruit == None:
+                self.alert = QMessageBox()
+                self.alert.setText("Check 1 radio box")
+                self.alert.exec_()
+            else:
+                writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='openpyxl')
+                # try to open an existing workbook
+                writer.book = load_workbook(f"{dirname}/aero.xlsx")
+                # copy existing sheets
+                writer.sheets = dict((ws.title, ws) for ws in writer.book.worksheets)
+                # write out the new sheet
+                df.to_excel(writer,index=False,header=False,startrow=len(reader)+1)
+                writer.close()
         else:
-            print("doesnt exist")
-
-    def on_button_clicked(self, id):
-        for button in self.button_group.buttons():
-            if button is self.button_group.button(id):
-                print(button.text() + " Was Clicked ")
+            if fruit == None:
+                self.alert = QMessageBox()
+                self.alert.setText("Check 1 radio box")
+                self.alert.exec_()
+            else:
+                writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
+                df.to_excel(writer, sheet_name='Sheet1', index=False)
+                writer.save()
+    
+    def is_toggled(self):
+        if self.yes.isChecked() == True and self.no.isChecked() == False:
+            fruit = "Yes"
+        elif self.yes.isChecked() == False and self.no.isChecked() == True:
+            fruit = "No"
+        else:
+            fruit = None
+        return fruit
+    
+    def repeat_day(self):
+        dirname = os.path.dirname(os.path.realpath(__file__))
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            reader = pd.read_excel(f"{dirname}/aero.xlsx")
+            return self.today2 in list(reader['Date'])
 
 app = QApplication([])
 mainWin = MainWindow()
