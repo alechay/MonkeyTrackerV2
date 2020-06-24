@@ -1,10 +1,52 @@
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from PyQt5 import QtGui
 import datetime
 import os
 import pandas as pd
 from openpyxl import load_workbook
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+
+class TableModel(QtCore.QAbstractTableModel):
+
+    def __init__(self, data):
+        super(TableModel, self).__init__()
+        self._data = data
+
+    def data(self, index, role):
+        if role == Qt.DisplayRole:
+            value = self._data.iloc[index.row(), index.column()]
+            return str(value)
+
+    def rowCount(self, index):
+        return self._data.shape[0]
+
+    def columnCount(self, index):
+        return self._data.shape[1]
+    
+    def headerData(self, section, orientation, role):
+        # section is the index of the column/row.
+        if role == Qt.DisplayRole:
+            if orientation == Qt.Horizontal:
+                return str(self._data.columns[section])
+
+            if orientation == Qt.Vertical:
+                return str(self._data.index[section])
+
+def get_data():
+    dirname = os.path.dirname(os.path.realpath(__file__))
+    if os.path.exists(f"{dirname}/aero.xlsx"):
+        reader = pd.read_excel(f"{dirname}/aero.xlsx")
+        return reader
+
+class MplCanvas(FigureCanvasQTAgg):
+
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        super(MplCanvas, self).__init__(self.fig)
 
 class MainWindow(QMainWindow):
     
@@ -16,29 +58,37 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Main Window")
         self.widget = QWidget()
         self.layout = QGridLayout()
-        
+
         self.button1 = QPushButton("Enter data")
         self.button1.clicked.connect(self.enterData)
-        self.button2 = QPushButton("Edit table data")
-        # self.button2.clicked.connect(self.onClick)
+        self.button2 = QPushButton("View table data")
+        self.button2.clicked.connect(self.viewTable)
         self.button3 = QPushButton("Daily weight and daily water")
-        # self.button3.clicked.connect(self.onClick)
+        self.button3.clicked.connect(self.DailyWaterWeight)
         self.button4 = QPushButton("Daily weight, dot size = daily water")
         # self.button4.clicked.connect(self.onClick)
         self.button5 = QPushButton("Info and specs")
         # self.button5.clicked.connect(self.onClick)
 
         self.layout.addWidget(self.button1, 0, 0)
-        self.layout.addWidget(self.button2, 1, 0)
-        self.layout.addWidget(self.button3, 2, 0)
-        self.layout.addWidget(self.button4, 3, 0)
-        self.layout.addWidget(self.button5, 4, 0)
+        self.layout.addWidget(self.button2, 0, 2)
+        self.layout.addWidget(self.button3, 1, 0)
+        self.layout.addWidget(self.button4, 1, 1)
+        self.layout.addWidget(self.button5, 2, 1)
 
         self.widget.setLayout(self.layout)
         self.setCentralWidget(self.widget)
 
     def enterData(self):
         self.nextWin = EnterData()
+        self.nextWin.show()
+
+    def viewTable(self):
+        self.nextWin = ViewTable()
+        self.nextWin.show()
+
+    def DailyWaterWeight(self):
+        self.nextWin = DailyWeightWater()
         self.nextWin.show()
 
 class EnterData(QMainWindow):
@@ -157,6 +207,60 @@ class EnterData(QMainWindow):
         if os.path.exists(f"{dirname}/aero.xlsx"):
             reader = pd.read_excel(f"{dirname}/aero.xlsx")
             return self.today2 in list(reader['Date'])
+
+class ViewTable(QMainWindow):
+
+    def __init__(self):
+        super().__init__()
+        self.display()
+
+    def display(self):
+        self.setWindowTitle("View Data")
+        self.data = get_data()
+
+        self.table = QtWidgets.QTableView()
+        self.model = TableModel(self.data)
+        self.table.setModel(self.model)
+
+        self.setCentralWidget(self.table)
+         
+class DailyWeightWater(QMainWindow):
+
+    def __init__(self):
+        super().__init__()
+        self.display()
+
+    def display(self):
+        self.setWindowTitle("Change in Weight and Water")
+        data = get_data()
+        
+        sc = MplCanvas(self, width=5, height=4, dpi=100)
+        # sc.fig.suptitle("Change in Weight and Water", fontsize=16)
+        gs = sc.fig.add_gridspec(2,1)
+
+        ax1 = sc.fig.add_subplot(gs[0,0])
+        ax1.plot(data['Day'], data['Weight'], '.--r')
+        ax1.set_title("Weight vs Day")
+        ax1.set_ylabel("Weight (kg)")
+
+        ax2 = sc.fig.add_subplot(gs[1,0])
+        ax2.plot(data['Day'], data['Water'], '.--b')
+        ax2.set_title("Water vs Day")
+        ax2.set_ylabel("Water (ml)")
+
+        sc.fig.tight_layout()
+
+        # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
+        toolbar = NavigationToolbar(sc, self)
+        
+        layout = QVBoxLayout()
+        layout.addWidget(toolbar)
+        layout.addWidget(sc)
+
+        # Create a placeholder widget to hold our toolbar and canvas.
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
 
 app = QApplication([])
 mainWin = MainWindow()
