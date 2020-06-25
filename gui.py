@@ -4,11 +4,13 @@ from PyQt5.QtWidgets import *
 from PyQt5 import QtGui
 import datetime
 import os
+import numpy as np
 import pandas as pd
 from openpyxl import load_workbook
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+import matplotlib.dates as mdates
 
 class TableModel(QtCore.QAbstractTableModel):
 
@@ -42,6 +44,22 @@ def get_data():
         reader = pd.read_excel(f"{dirname}/aero.xlsx")
         return reader
 
+def plot_data():
+    data = get_data()
+    water_f = [data["Water"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'Yes' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    chng_weight_f = [data["Weight"][i]-data["Weight"][i+1] for i in range(len(data)-1) if data['Fruit'][i] == 'Yes' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    water_nf = [data["Water"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'No' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    chng_weight_nf = [data["Weight"][i]-data["Weight"][i+1] for i in range(len(data)-1) if data['Fruit'][i] == 'No' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    if water_f != []:
+        m1, b1 = np.polyfit(water_f, chng_weight_f, 1)
+    else:
+        m1, b1 = (None, None)
+    if water_nf != []:
+        m2, b2 = np.polyfit(water_nf, chng_weight_nf, 1)
+    else:
+        m2, b2 = (None, None)
+    return water_f, chng_weight_f, water_nf, chng_weight_nf, m1, b1, m2, b2
+
 class MplCanvas(FigureCanvasQTAgg):
 
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -61,20 +79,26 @@ class MainWindow(QMainWindow):
 
         self.button1 = QPushButton("Enter data")
         self.button1.clicked.connect(self.enterData)
-        self.button2 = QPushButton("View table data")
-        self.button2.clicked.connect(self.viewTable)
-        self.button3 = QPushButton("Daily weight and daily water")
-        self.button3.clicked.connect(self.DailyWaterWeight)
-        self.button4 = QPushButton("Daily weight, dot size = daily water")
-        # self.button4.clicked.connect(self.onClick)
-        self.button5 = QPushButton("Info and specs")
-        # self.button5.clicked.connect(self.onClick)
+        self.button2 = QPushButton("Enter missing data")
+        # self.button2.clicked.connect(self.enterData)
+        self.button3 = QPushButton("View table data")
+        self.button3.clicked.connect(self.viewTable)
+        self.button4 = QPushButton("Daily weight/water")
+        self.button4.clicked.connect(self.DailyWaterWeight)
+        self.button5 = QPushButton("Daily weight")
+        self.button5.clicked.connect(self.WaterPointSize)
+        self.button6 = QPushButton("Recommended intake")
+        self.button6.clicked.connect(self.RecommendedIntake)
+        self.button7 = QPushButton("Info & specs")
+        self.button7.clicked.connect(self.infoSpecs)
 
         self.layout.addWidget(self.button1, 0, 0)
-        self.layout.addWidget(self.button2, 0, 2)
-        self.layout.addWidget(self.button3, 1, 0)
-        self.layout.addWidget(self.button4, 1, 1)
-        self.layout.addWidget(self.button5, 2, 1)
+        self.layout.addWidget(self.button2, 0, 1)
+        self.layout.addWidget(self.button3, 0, 2)
+        self.layout.addWidget(self.button4, 1, 0)
+        self.layout.addWidget(self.button5, 1, 1)
+        self.layout.addWidget(self.button6, 1, 2)
+        self.layout.addWidget(self.button7, 2, 1)
 
         self.widget.setLayout(self.layout)
         self.setCentralWidget(self.widget)
@@ -89,6 +113,18 @@ class MainWindow(QMainWindow):
 
     def DailyWaterWeight(self):
         self.nextWin = DailyWeightWater()
+        self.nextWin.show()
+
+    def WaterPointSize(self):
+        self.nextWin = WaterPointSize()
+        self.nextWin.show()
+
+    def RecommendedIntake(self):
+        self.nextWin = RecommendedIntake()
+        self.nextWin.show()
+
+    def infoSpecs(self):
+        self.nextWin = InfoSpecs()
         self.nextWin.show()
 
 class EnterData(QMainWindow):
@@ -170,6 +206,7 @@ class EnterData(QMainWindow):
                 self.alert = QMessageBox()
                 self.alert.setText("Entry has already been submitted for this date")
                 self.alert.exec_()
+                self.close()
             elif fruit == None:
                 self.alert = QMessageBox()
                 self.alert.setText("Check 1 radio box")
@@ -183,6 +220,7 @@ class EnterData(QMainWindow):
                 # write out the new sheet
                 df.to_excel(writer,index=False,header=False,startrow=len(reader)+1)
                 writer.close()
+                self.close()
         else:
             if fruit == None:
                 self.alert = QMessageBox()
@@ -192,6 +230,7 @@ class EnterData(QMainWindow):
                 writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
                 df.to_excel(writer, sheet_name='Sheet1', index=False)
                 writer.save()
+                self.close()
     
     def is_toggled(self):
         if self.yes.isChecked() == True and self.no.isChecked() == False:
@@ -233,18 +272,25 @@ class DailyWeightWater(QMainWindow):
     def display(self):
         self.setWindowTitle("Change in Weight and Water")
         data = get_data()
+        dates = [datetime.datetime.strptime(d,"%Y-%m-%d").date() for d in data['Date']]
+        formatter = mdates.DateFormatter("%Y-%m-%d")
+        locator = mdates.DayLocator()
         
         sc = MplCanvas(self, width=5, height=4, dpi=100)
         # sc.fig.suptitle("Change in Weight and Water", fontsize=16)
         gs = sc.fig.add_gridspec(2,1)
 
         ax1 = sc.fig.add_subplot(gs[0,0])
-        ax1.plot(data['Day'], data['Weight'], '.--r')
+        ax1.xaxis.set_major_formatter(formatter)
+        ax1.xaxis.set_major_locator(locator)
+        ax1.plot(dates, data['Weight'], '.--r')
         ax1.set_title("Weight vs Day")
         ax1.set_ylabel("Weight (kg)")
 
         ax2 = sc.fig.add_subplot(gs[1,0])
-        ax2.plot(data['Day'], data['Water'], '.--b')
+        ax2.xaxis.set_major_formatter(formatter)
+        ax2.xaxis.set_major_locator(locator)
+        ax2.plot(dates, data['Water'], '.--b')
         ax2.set_title("Water vs Day")
         ax2.set_ylabel("Water (ml)")
 
@@ -261,6 +307,120 @@ class DailyWeightWater(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
+
+class WaterPointSize(QMainWindow):
+
+    def __init__(self):
+        super().__init__()
+        self.display()
+
+    def display(self):
+        self.setWindowTitle("Change in Weight")
+        data = get_data()
+        dates = [datetime.datetime.strptime(d,"%Y-%m-%d").date() for d in data['Date']]
+        
+        sc = MplCanvas(self, width=5, height=4, dpi=100)
+        # sc.fig.suptitle("Change in Weight and Water", fontsize=16)
+
+        ax1 = sc.fig.add_subplot(111)
+        formatter = mdates.DateFormatter("%Y-%m-%d")
+        ax1.xaxis.set_major_formatter(formatter)
+        locator = mdates.DayLocator()
+        ax1.xaxis.set_major_locator(locator)
+        ax1.plot(dates, data['Weight'], '--r')
+        scatter = ax1.scatter(dates, data['Weight'], s=data["Water"], color='r')
+        ax1.set_title("Weight vs Day")
+        ax1.set_ylabel("Weight (kg)")
+        handles, labels = scatter.legend_elements(prop="sizes", alpha=0.6)
+        ax1.legend(handles, labels, loc="upper right", title="Water (ml)")
+
+        sc.fig.tight_layout()
+
+        # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
+        toolbar = NavigationToolbar(sc, self)
+        
+        layout = QVBoxLayout()
+        layout.addWidget(toolbar)
+        layout.addWidget(sc)
+
+        # Create a placeholder widget to hold our toolbar and canvas.
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
+
+class RecommendedIntake(QMainWindow):
+    
+    def __init__(self):
+        super().__init__()
+        self.display()
+
+    def display(self):
+        self.setWindowTitle("Recommended Intake")
+        water_f, chng_weight_f, water_nf, chng_weight_nf, m1, b1, m2, b2 = plot_data()
+
+        sc = MplCanvas(self, width=5, height=4, dpi=100)
+        # sc.fig.suptitle("Change in Weight and Water", fontsize=16)
+
+        ax1 = sc.fig.add_subplot(111)
+        ax1.scatter(water_f, chng_weight_f, color='b', label='Fruit')
+        ax1.plot(water_f, m1*np.array(water_f)+b1, 'b')
+        ax1.scatter(water_nf, chng_weight_nf, color='r', label='No Fruit')
+        ax1.plot(water_nf, m2*np.array(water_nf)+b2, 'r')
+        ax1.set_title("Amount of water vs change in weight")
+        ax1.set_ylabel("Change in Weight (kg)")
+        ax1.set_xlabel("Water (ml")
+        ax1.legend()
+
+        sc.fig.tight_layout()
+
+        # Create toolbar, passing canvas as first parament, parent (self, the MainWindow) as second.
+        toolbar = NavigationToolbar(sc, self)
+        
+        layout = QVBoxLayout()
+        layout.addWidget(toolbar)
+        layout.addWidget(sc)
+
+        # Create a placeholder widget to hold our toolbar and canvas.
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
+
+class InfoSpecs(QMainWindow):
+    
+    def __init__(self):
+        super().__init__()
+        self.display()
+
+    def display(self):
+        self.setWindowTitle("Info and specs")
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        water_f, chng_weight_f, water_nf, chng_weight_nf, m1, b1, m2, b2 = plot_data()
+        
+        if m1 == None or b1==None:
+            fruit_eq = QLabel("Fruit: N/A")
+            fruit = QLabel("")
+        else:
+            fruit_zero = round(-b1/m1, 2)
+            fruit_eq = QLabel(f"Fruit: y={round(m1, 2)}x + {round(b1, 2)}")
+            fruit = QLabel(f"If he gets fruit, monkey needs {fruit_zero}ml of water to maintain his weight")
+
+        if m2 == None or b2==None:
+            nofruit_eq = QLabel("No Fruit: N/A")
+            nofruit = QLabel("")
+        else:
+            nofruit_zero = round(-b2/m2, 2)
+            nofruit_eq = QLabel(f"No fruit: y={round(m2, 2)}x + {round(b2, 2)}")
+            nofruit = QLabel(f"If he doesn't get fruit, monkey needs {nofruit_zero}ml of water to maintain his weight")
+        
+        layout.addWidget(fruit_eq)
+        layout.addWidget(fruit)
+        layout.addWidget(nofruit_eq)
+        layout.addWidget(nofruit)
+
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)        
 
 app = QApplication([])
 mainWin = MainWindow()
