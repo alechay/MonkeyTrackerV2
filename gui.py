@@ -6,6 +6,7 @@ import datetime
 import os
 import numpy as np
 import pandas as pd
+from pandas.plotting import register_matplotlib_converters
 from openpyxl import load_workbook
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
@@ -13,6 +14,7 @@ from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 
 
+register_matplotlib_converters()
 dirname = os.path.dirname(os.path.realpath(__file__))
 
 def get_day():       
