@@ -12,8 +12,73 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationTool
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 
-class TableModel(QtCore.QAbstractTableModel):
 
+dirname = os.path.dirname(os.path.realpath(__file__))
+
+def get_day():       
+    datetimeFormat = '%Y-%m-%d'
+    today = datetime.date.today()
+    today1 = today.strftime("%B %d, %Y")
+    today2 = today.strftime(datetimeFormat)
+
+    if os.path.exists(f"{dirname}/aero.xlsx"):
+        reader = pd.read_excel(f'{dirname}/aero.xlsx')
+        first_date = reader['Date'][0]
+        date = datetime.datetime.strptime(first_date, datetimeFormat).date()
+        # date1 = date.strftime(datetimeFormat)
+    else:
+        date = datetime.date.today()
+        # date1 = date.strftime(datetimeFormat)
+    
+    diff = today - date
+    diff1 = diff.days + 1
+    
+    return today1, diff1, today2
+
+def repeat_day():
+    today, diff, today2 = get_day()
+    if os.path.exists(f"{dirname}/aero.xlsx"):
+        reader = pd.read_excel(f"{dirname}/aero.xlsx")
+        return today2 in list(reader['Date'])
+
+def is_float(string):
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False
+
+def get_data():
+    if os.path.exists(f"{dirname}/aero.xlsx"):
+        reader = pd.read_excel(f"{dirname}/aero.xlsx")
+        return reader
+
+def get_missing_days(data):
+    dates = [datetime.datetime.strptime(d,"%Y-%m-%d").date() for d in data['Date']]
+    date_set = set(dates[0] + datetime.timedelta(x) for x in range((dates[-1] - dates[0]).days))
+    missing_dates = sorted(date_set - set(dates))
+    days = np.array(data['Day'])
+    missing_days = [x for x in range(days[0], days[-1]+1) if x not in days]
+    ixs = [list(days).index(days[days < x].max()) + 1 for x in missing_days]
+    return missing_dates, missing_days, ixs
+
+def plot_data():
+    data = get_data()
+    water_f = [data["Water"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'Yes' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    chng_weight_f = [data["Weight"][i+1]-data["Weight"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'Yes' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    water_nf = [data["Water"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'No' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    chng_weight_nf = [data["Weight"][i+1]-data["Weight"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'No' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
+    if water_f != []:
+        m1, b1 = np.polyfit(water_f, chng_weight_f, 1)
+    else:
+        m1, b1 = (None, None)
+    if water_nf != []:
+        m2, b2 = np.polyfit(water_nf, chng_weight_nf, 1)
+    else:
+        m2, b2 = (None, None)
+    return water_f, chng_weight_f, water_nf, chng_weight_nf, m1, b1, m2, b2
+
+class TableModel(QtCore.QAbstractTableModel):
     def __init__(self, data):
         super(TableModel, self).__init__()
         self._data = data
@@ -38,28 +103,6 @@ class TableModel(QtCore.QAbstractTableModel):
             if orientation == Qt.Vertical:
                 return str(self._data.index[section])
 
-def get_data():
-    dirname = os.path.dirname(os.path.realpath(__file__))
-    if os.path.exists(f"{dirname}/aero.xlsx"):
-        reader = pd.read_excel(f"{dirname}/aero.xlsx")
-        return reader
-
-def plot_data():
-    data = get_data()
-    water_f = [data["Water"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'Yes' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
-    chng_weight_f = [data["Weight"][i]-data["Weight"][i+1] for i in range(len(data)-1) if data['Fruit'][i] == 'Yes' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
-    water_nf = [data["Water"][i] for i in range(len(data)-1) if data['Fruit'][i] == 'No' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
-    chng_weight_nf = [data["Weight"][i]-data["Weight"][i+1] for i in range(len(data)-1) if data['Fruit'][i] == 'No' and data["Weight"][i+1]!='' and data['Day'][i]+1 == data['Day'][i+1]]
-    if water_f != []:
-        m1, b1 = np.polyfit(water_f, chng_weight_f, 1)
-    else:
-        m1, b1 = (None, None)
-    if water_nf != []:
-        m2, b2 = np.polyfit(water_nf, chng_weight_nf, 1)
-    else:
-        m2, b2 = (None, None)
-    return water_f, chng_weight_f, water_nf, chng_weight_nf, m1, b1, m2, b2
-
 class MplCanvas(FigureCanvasQTAgg):
 
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -80,7 +123,7 @@ class MainWindow(QMainWindow):
         self.button1 = QPushButton("Enter data")
         self.button1.clicked.connect(self.enterData)
         self.button2 = QPushButton("Enter missing data")
-        # self.button2.clicked.connect(self.enterData)
+        self.button2.clicked.connect(self.enterMissingData)
         self.button3 = QPushButton("View table data")
         self.button3.clicked.connect(self.viewTable)
         self.button4 = QPushButton("Daily weight/water")
@@ -89,7 +132,7 @@ class MainWindow(QMainWindow):
         self.button5.clicked.connect(self.WaterPointSize)
         self.button6 = QPushButton("Recommended intake")
         self.button6.clicked.connect(self.RecommendedIntake)
-        self.button7 = QPushButton("Info & specs")
+        self.button7 = QPushButton("Info / specs")
         self.button7.clicked.connect(self.infoSpecs)
 
         self.layout.addWidget(self.button1, 0, 0)
@@ -104,28 +147,75 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.widget)
 
     def enterData(self):
-        self.nextWin = EnterData()
-        self.nextWin.show()
+        repeated = repeat_day()
+        if repeated == True:
+            self.alert = QMessageBox()
+            self.alert.setText("Entry has already been submitted for today")
+            self.alert.exec_()
+        else:
+            self.nextWin = EnterData()
+            self.nextWin.show()
 
     def viewTable(self):
-        self.nextWin = ViewTable()
-        self.nextWin.show()
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            self.nextWin = ViewTable()
+            self.nextWin.show()
+        else:
+            self.alert = QMessageBox()
+            self.alert.setText("No data")
+            self.alert.exec_()
 
     def DailyWaterWeight(self):
-        self.nextWin = DailyWeightWater()
-        self.nextWin.show()
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            self.nextWin = DailyWeightWater()
+            self.nextWin.show()
+        else:
+            self.alert = QMessageBox()
+            self.alert.setText("No data")
+            self.alert.exec_()            
 
     def WaterPointSize(self):
-        self.nextWin = WaterPointSize()
-        self.nextWin.show()
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            self.nextWin = WaterPointSize()
+            self.nextWin.show()
+        else:
+            self.alert = QMessageBox()
+            self.alert.setText("No data")
+            self.alert.exec_()            
 
     def RecommendedIntake(self):
-        self.nextWin = RecommendedIntake()
-        self.nextWin.show()
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            self.nextWin = RecommendedIntake()
+            self.nextWin.show()
+        else:
+            self.alert = QMessageBox()
+            self.alert.setText("No data")
+            self.alert.exec_()             
 
     def infoSpecs(self):
-        self.nextWin = InfoSpecs()
-        self.nextWin.show()
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            self.nextWin = InfoSpecs()
+            self.nextWin.show()
+        else:
+            self.alert = QMessageBox()
+            self.alert.setText("No data")
+            self.alert.exec_()              
+
+    def enterMissingData(self):
+        if os.path.exists(f"{dirname}/aero.xlsx"):
+            data = get_data()
+            missing_dates, missing_days, ixs = get_missing_days(data)
+            if missing_dates == []:
+                self.alert = QMessageBox()
+                self.alert.setText("No missing days")
+                self.alert.exec_()
+            else:
+                self.nextWin = EnterMissingData()
+                self.nextWin.show()
+        else:
+            self.alert = QMessageBox()
+            self.alert.setText("No data")
+            self.alert.exec_()             
 
 class EnterData(QMainWindow):
     
@@ -138,11 +228,11 @@ class EnterData(QMainWindow):
         self.widget = QWidget()
         self.layout = QGridLayout()
 
-        self.today, self.diff, self.today2 = self.get_day()
+        self.today, self.diff, self.today2 = get_day()
         self.date = QLabel(f"Today is {self.today}")
         self.day = QLabel(f"Day {self.diff}")
         self.check = QLabel()
-        if self.repeat_day() == True:
+        if repeat_day() == True:
             self.check.setText("Entry has already been submitted for this date")
             self.check.setStyleSheet("color: red;")
         self.l1 = QLabel("Weight (kg):")
@@ -170,35 +260,17 @@ class EnterData(QMainWindow):
         self.widget.setLayout(self.layout)
         self.setCentralWidget(self.widget)
 
-    def get_day(self):       
-        datetimeFormat = '%Y-%m-%d'
-        today = datetime.date.today()
-        today1 = today.strftime("%B %d, %Y")
-        today2 = today.strftime(datetimeFormat)
-
-        dirname = os.path.dirname(os.path.realpath(__file__))
-        if os.path.exists(f"{dirname}/aero.xlsx"):
-            reader = pd.read_excel(f'{dirname}/aero.xlsx')
-            first_date = reader['Date'][0]
-            date = datetime.datetime.strptime(first_date, datetimeFormat).date()
-            # date1 = date.strftime(datetimeFormat)
-        else:
-            date = datetime.date.today()
-            # date1 = date.strftime(datetimeFormat)
-        
-        diff = today - date
-        diff1 = diff.days + 1
-        
-        return today1, diff1, today2
-
     def submitMethod(self):
-        dirname = os.path.dirname(os.path.realpath(__file__))
+        date = self.today2
+        day = self.diff
+        weight = self.input_weight.text()
+        water = self.input_water.text()
         fruit = self.is_toggled()
         df = pd.DataFrame(
-        {'Date': [self.today2],
-        'Day': [self.diff],
-        'Weight': [self.input_weight.text()],
-        'Water': [self.input_water.text()],
+        {'Date': [date],
+        'Day': [day],
+        'Weight': [weight],
+        'Water': [water],
         'Fruit': [fruit]})
         if os.path.exists(f"{dirname}/aero.xlsx"):
             reader = pd.read_excel(f"{dirname}/aero.xlsx")
@@ -207,11 +279,13 @@ class EnterData(QMainWindow):
                 self.alert.setText("Entry has already been submitted for this date")
                 self.alert.exec_()
                 self.close()
-            elif fruit == None:
+            elif fruit == None or is_float(weight)==False or is_float(water)==False:
                 self.alert = QMessageBox()
-                self.alert.setText("Check 1 radio box")
+                self.alert.setText("Incomplete Data")
                 self.alert.exec_()
             else:
+                df["Weight"] = pd.to_numeric(df["Weight"])
+                df["Water"] = pd.to_numeric(df["Water"])
                 writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='openpyxl')
                 # try to open an existing workbook
                 writer.book = load_workbook(f"{dirname}/aero.xlsx")
@@ -222,11 +296,13 @@ class EnterData(QMainWindow):
                 writer.close()
                 self.close()
         else:
-            if fruit == None:
+            if fruit == None or is_float(weight)==False or is_float(water)==False:
                 self.alert = QMessageBox()
-                self.alert.setText("Check 1 radio box")
+                self.alert.setText("Incomplete Data")
                 self.alert.exec_()
             else:
+                df["Weight"] = pd.to_numeric(df["Weight"])
+                df["Water"] = pd.to_numeric(df["Water"])
                 writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
                 df.to_excel(writer, sheet_name='Sheet1', index=False)
                 writer.save()
@@ -240,12 +316,109 @@ class EnterData(QMainWindow):
         else:
             fruit = None
         return fruit
-    
-    def repeat_day(self):
-        dirname = os.path.dirname(os.path.realpath(__file__))
-        if os.path.exists(f"{dirname}/aero.xlsx"):
-            reader = pd.read_excel(f"{dirname}/aero.xlsx")
-            return self.today2 in list(reader['Date'])
+
+class EnterMissingData(QMainWindow):
+
+    def __init__(self):
+        super().__init__()
+        self.display()
+
+    def display(self):
+        self.setWindowTitle("Enter missing data")
+        self.widget = QWidget()
+        self.layout = QGridLayout()
+
+        data = get_data()
+        dates, days, ixs = get_missing_days(data)
+
+        self.l1 = QLabel("Select date to add")
+        self.date = QComboBox()
+        for i in range(len(dates)):
+            self.date.addItem(f"Day {days[i]}, {dates[i]}")
+        self.l2 = QLabel("Weight (kg):")
+        self.input_weight = QLineEdit()
+        self.l3 = QLabel("Water (ml):")
+        self.input_water = QLineEdit()
+        self.l4 = QLabel("Fruit?")
+        self.yes = QRadioButton("Yes")
+        self.no = QRadioButton("No")
+        self.submit_button = QPushButton("Submit")
+        self.submit_button.clicked.connect(self.submit_method)
+
+        self.layout.addWidget(self.l1, 0, 0)
+        self.layout.addWidget(self.date, 1, 0)
+        self.layout.addWidget(self.l2, 2, 0)
+        self.layout.addWidget(self.input_weight, 3, 0)
+        self.layout.addWidget(self.l3, 4, 0)
+        self.layout.addWidget(self.input_water, 5, 0)
+        self.layout.addWidget(self.l4, 6, 0)
+        self.layout.addWidget(self.yes, 7, 0)
+        self.layout.addWidget(self.no, 8, 0)
+        self.layout.addWidget(self.submit_button, 9, 0)
+
+        self.widget.setLayout(self.layout)
+        self.setCentralWidget(self.widget)
+
+    def is_toggled(self):
+        if self.yes.isChecked() == True and self.no.isChecked() == False:
+            fruit = "Yes"
+        elif self.yes.isChecked() == False and self.no.isChecked() == True:
+            fruit = "No"
+        else:
+            fruit = None
+        return fruit
+
+    def Insert_row(self, row_number, df, row_value): 
+        # Starting value of upper half 
+        start_upper = 0
+        # End value of upper half 
+        end_upper = row_number 
+        # Start value of lower half 
+        start_lower = row_number 
+        # End value of lower half 
+        end_lower = df.shape[0] 
+        # Create a list of upper_half index 
+        upper_half = [*range(start_upper, end_upper, 1)] 
+        # Create a list of lower_half index 
+        lower_half = [*range(start_lower, end_lower, 1)] 
+        # Increment the value of lower half by 1 
+        lower_half = [x.__add__(1) for x in lower_half] 
+        # Combine the two lists 
+        index_ = upper_half + lower_half 
+        # Update the index of the dataframe 
+        df.index = index_ 
+        # Insert a row at the end 
+        df.loc[row_number] = row_value 
+        # Sort the index labels 
+        df = df.sort_index() 
+        # return the dataframe 
+        return df 
+
+    def submit_method(self):
+        data = get_data()
+        dates, days, ixs = get_missing_days(data)
+        i = self.date.currentIndex()
+        date = dates[i].strftime('%Y-%m-%d')
+        day = days[i]
+        weight = self.input_weight.text()
+        water = self.input_water.text()
+        fruit = self.is_toggled()
+        if fruit == None or is_float(weight)==False or is_float(water)==False:
+            self.alert = QMessageBox()
+            self.alert.setText("Data Incomplete")
+            self.alert.exec_()
+        else: 
+            row_value = [date, day, float(weight), float(water), fruit]
+            new = self.Insert_row(ixs[i], data, row_value)
+            writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
+            new.to_excel(writer, sheet_name='Sheet1', index=False)
+            writer.save()
+            self.close()
+            data = get_data()
+            dates, days, ixs = get_missing_days(data)
+            if dates != []:
+                self.nextWin = EnterMissingData()
+                self.nextWin.show()
 
 class ViewTable(QMainWindow):
 
@@ -368,7 +541,7 @@ class RecommendedIntake(QMainWindow):
         ax1.plot(water_nf, m2*np.array(water_nf)+b2, 'r')
         ax1.set_title("Amount of water vs change in weight")
         ax1.set_ylabel("Change in Weight (kg)")
-        ax1.set_xlabel("Water (ml")
+        ax1.set_xlabel("Water (ml)")
         ax1.legend()
 
         sc.fig.tight_layout()
