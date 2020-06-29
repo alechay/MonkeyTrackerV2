@@ -314,6 +314,33 @@ class EnterData(QMainWindow):
         self.widget.setLayout(self.layout)
         self.setCentralWidget(self.widget)
 
+    def is_toggled(self):
+        if self.yes.isChecked() == True and self.no.isChecked() == False:
+            fruit = "Yes"
+        elif self.yes.isChecked() == False and self.no.isChecked() == True:
+            fruit = "No"
+        else:
+            fruit = None
+        return fruit
+
+    def fruit_error(self):
+        self.alert = QMessageBox()
+        self.alert.setText("Radio box unchecked")
+        self.alert.exec_()
+
+    def valid_num_error(self):
+        self.alert = QMessageBox()
+        self.alert.setText("Enter valid number")
+        self.alert.exec_()
+
+    def excel_writer(self, df):
+        df["Weight"] = pd.to_numeric(df["Weight"])
+        df["Water"] = pd.to_numeric(df["Water"])
+        writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
+        df.to_excel(writer, sheet_name='Sheet1', index=False)
+        writer.save()
+        self.close()
+
     def submitMethod(self):
         date = self.today2
         day = self.diff
@@ -334,21 +361,12 @@ class EnterData(QMainWindow):
                 self.alert.exec_()
                 self.close()
             elif fruit == None:
-                self.alert = QMessageBox()
-                self.alert.setText("Radio box unchecked")
-                self.alert.exec_()                
+                self.fruit_error()                
             elif df["Weight"][0] == '' or df['Water'][0] == '':
-                df["Weight"] = pd.to_numeric(df["Weight"])
-                df["Water"] = pd.to_numeric(df["Water"])
-                writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
-                df.to_excel(writer, sheet_name='Sheet1', index=False)
-                writer.save()
-                self.close()
+                self.excel_writer(df)
             else:
                 if is_float(weight)==False or is_float(water)==False:
-                    self.alert = QMessageBox()
-                    self.alert.setText("Enter valid number")
-                    self.alert.exec_()
+                    self.valid_num_error()
                 else:
                     df["Weight"] = pd.to_numeric(df["Weight"])
                     df["Water"] = pd.to_numeric(df["Water"])
@@ -363,37 +381,14 @@ class EnterData(QMainWindow):
                     self.close()
         else:
             if fruit == None:
-                self.alert = QMessageBox()
-                self.alert.setText("Radio box unchecked")
-                self.alert.exec_()  
+                self.fruit_error()  
             elif df["Weight"][0] == '' or df['Water'][0] == '':
-                df["Weight"] = pd.to_numeric(df["Weight"])
-                df["Water"] = pd.to_numeric(df["Water"])
-                writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
-                df.to_excel(writer, sheet_name='Sheet1', index=False)
-                writer.save()
-                self.close()
+                self.excel_writer(df)
             else:
                 if is_float(weight)==False or is_float(water)==False:
-                    self.alert = QMessageBox()
-                    self.alert.setText("Enter valid number")
-                    self.alert.exec_()
+                    self.valid_num_error()
                 else:
-                    df["Weight"] = pd.to_numeric(df["Weight"])
-                    df["Water"] = pd.to_numeric(df["Water"])
-                    writer = pd.ExcelWriter(f"{dirname}/aero.xlsx", engine='xlsxwriter')
-                    df.to_excel(writer, sheet_name='Sheet1', index=False)
-                    writer.save()
-                    self.close()
-    
-    def is_toggled(self):
-        if self.yes.isChecked() == True and self.no.isChecked() == False:
-            fruit = "Yes"
-        elif self.yes.isChecked() == False and self.no.isChecked() == True:
-            fruit = "No"
-        else:
-            fruit = None
-        return fruit
+                    self.excel_writer(df)
 
 class EnterMissingData(QMainWindow):
 
@@ -454,6 +449,23 @@ class EnterMissingData(QMainWindow):
             fruit = None
         return fruit
 
+    def fruit_error(self):
+        self.alert = QMessageBox()
+        self.alert.setText("Radio box unchecked")
+        self.alert.exec_()
+
+    def valid_num_error(self):
+        self.alert = QMessageBox()
+        self.alert.setText("Enter valid number")
+        self.alert.exec_()
+
+    def check_continue(self):
+        data = get_data()
+        dates, days, ixs = get_missing_days(data)
+        if dates != []:
+            self.nextWin = EnterMissingData()
+            self.nextWin.show()
+
     def Insert_row(self, row_number, df, row_value): 
         # Starting value of upper half 
         start_upper = 0
@@ -490,9 +502,7 @@ class EnterMissingData(QMainWindow):
         water = self.input_water.text()
         fruit = self.is_toggled()
         if fruit == None:
-            self.alert = QMessageBox()
-            self.alert.setText("Radio box unchecked")
-            self.alert.exec_() 
+            self.fruit_error()
         elif weight == '' or water == '':
             df = pd.DataFrame(
             {'Date': [date],
@@ -508,16 +518,10 @@ class EnterMissingData(QMainWindow):
             new.to_excel(writer, sheet_name='Sheet1', index=False)
             writer.save()
             self.close()
-            data = get_data()
-            dates, days, ixs = get_missing_days(data)
-            if dates != []:
-                self.nextWin = EnterMissingData()
-                self.nextWin.show()
+            self.check_continue()
         else:
             if is_float(weight)==False or is_float(water)==False:
-                self.alert = QMessageBox()
-                self.alert.setText("Enter valid number")
-                self.alert.exec_()
+                self.valid_num_error()
             else: 
                 row_value = [date, day, float(weight), float(water), fruit]
                 new = self.Insert_row(ixs[i], data, row_value)
@@ -525,11 +529,7 @@ class EnterMissingData(QMainWindow):
                 new.to_excel(writer, sheet_name='Sheet1', index=False)
                 writer.save()
                 self.close()
-                data = get_data()
-                dates, days, ixs = get_missing_days(data)
-                if dates != []:
-                    self.nextWin = EnterMissingData()
-                    self.nextWin.show()
+                self.check_continue()
 
 class ViewTable(QMainWindow):
 
@@ -553,12 +553,20 @@ class DailyWeightWater(QMainWindow):
         super().__init__()
         self.display()
 
+    def get_interval(self, dates):
+        if len(dates) < 3:
+            interval = 1
+        else:
+            interval = len(dates)//3
+        return interval
+    
     def display(self):
         self.setWindowTitle("Change in Weight and Water")
         data = get_data()
         dates = [datetime.datetime.strptime(d,"%Y-%m-%d").date() for d in data['Date']]
-        formatter = mdates.DateFormatter("%Y-%m-%d")
-        locator = mdates.DayLocator()
+        formatter = mdates.DateFormatter("%m/%d/%y")
+        interval = self.get_interval(dates)
+        locator = mdates.DayLocator(interval=interval)
         
         sc = MplCanvas(self, width=5, height=4, dpi=100)
         # sc.fig.suptitle("Change in Weight and Water", fontsize=16)
@@ -598,6 +606,13 @@ class WaterPointSize(QMainWindow):
         super().__init__()
         self.display()
 
+    def get_interval(self, dates):
+        if len(dates) < 3:
+            interval = 1
+        else:
+            interval = len(dates)//3
+        return interval
+
     def display(self):
         self.setWindowTitle("Change in Weight")
         data = get_data()
@@ -608,16 +623,17 @@ class WaterPointSize(QMainWindow):
         # sc.fig.suptitle("Change in Weight and Water", fontsize=16)
 
         ax1 = sc.fig.add_subplot(111)
-        formatter = mdates.DateFormatter("%Y-%m-%d")
+        formatter = mdates.DateFormatter("%m/%d/%y")
         ax1.xaxis.set_major_formatter(formatter)
-        locator = mdates.DayLocator()
+        interval = self.get_interval(dates)
+        locator = mdates.DayLocator(interval=interval)
         ax1.xaxis.set_major_locator(locator)
         ax1.plot(dates, data['Weight'], '--r')
         scatter = ax1.scatter(dates, data['Weight'], s=data["Water"], color='r')
         ax1.set_title("Weight vs Day")
         ax1.set_ylabel("Weight (kg)")
-        handles, labels = scatter.legend_elements(prop="sizes", alpha=0.6)
-        ax1.legend(handles, labels, loc="upper right", title="Water (ml)")
+        handles, labels = scatter.legend_elements(prop="sizes", num=3, alpha=0.6)
+        ax1.legend(handles, labels, loc="center left", title="Water (ml)", bbox_to_anchor=(1, 0.5), labelspacing=2)
 
         sc.fig.tight_layout()
 
