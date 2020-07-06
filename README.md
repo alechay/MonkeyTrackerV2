@@ -21,7 +21,7 @@ We cannot allow any primate to fall below a designated weight threshold, as it m
 
 ### Launching the app
 
-<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/main_menu.png" width="1166" height="522" />
+<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/main_menu.png" width=50% height=50% />
 <br>
 1. Launch the main menu in terminal using
 `python gui.py`
