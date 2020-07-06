@@ -22,42 +22,50 @@ We cannot allow any primate to fall below a designated weight threshold, as it m
 ### Launching the app
 
 1. Launch the main menu in terminal using
-	python gui.py 
+`python gui.py`
 2. Select a button to enter, view, or visualize the data
+<br>
 ![main_menu](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/main_menu.png?raw=true)
 
 ### Enter data
 
 Enter data for the current day
+<br>
 ![enter_data](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_data.png?raw=true)
 
 ### Enter missing data
 
 Enter data for any missing days
+<br>
 ![enter_missing_data](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_missing_data.png?raw=true)
 
 ### View table
 
 View the data that is in your .csv file
+<br>
 ![view_table](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/view_table.png?raw=true)
 
 ### Trends in water and weight
 
 View subplots showing trends in water and weight
+<br>
 ![daily_water_weight](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/daily_water_weight.png?raw=true)
 
 ### Trends in weight
 
 View a plot showing trends in weight, with the size of the dot corresponding to the amount of water receieved
+<br>
 ![daily_weight](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/daily_weight.png?raw=true)
 
 ### Daily changes
 
 View a plot showing the daily change in weight as a result of the amount of water given (and whether fruit was given)
+<br>
 ![daily_change](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/daily_change.png?raw=true)
 
 ### Info and specs
 Gives the equations for the best fit lines drawn in the daily change scatterplot. Calculates the ideal amount of water that needs to be given to your primate so that it maintains its weight.
+<br>
 ![info_specs](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/info_specs.png?raw=true)
 
 ## Bugs
