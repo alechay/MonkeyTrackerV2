@@ -25,7 +25,7 @@ We cannot allow any primate to fall below a designated weight threshold, as it m
 `python gui.py`
 2. Select a button to enter, view, or visualize the data
 <br>
-![main_menu](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/main_menu.png?raw=true)
+![main_menu](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/main_menu.png)
 
 ### Enter data
 
