@@ -31,19 +31,19 @@ We cannot allow any primate to fall below a designated weight threshold, as it m
 
 Enter data for the current day
 <br>
-<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_data.png" width=50% height=50% />
+<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_data.png" width=25% height=25% />
 
 ### Enter missing data
 
 Enter data for any missing days
 <br>
-<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_missing_data" width=50% height=50% />
+<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_missing_data.png" width=25% height=25% />
 
 ### View table
 
 View the data that is in your .csv file
 <br>
-<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/view_table" width=50% height=50% />
+<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/view_table.png" width=50% height=50% />
 
 ### Trends in water and weight
 
@@ -55,7 +55,7 @@ View subplots showing trends in water and weight
 
 View a plot showing trends in weight, with the size of the dot corresponding to the amount of water receieved
 <br>
-<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/daily_weight" width=50% height=50% />
+<img src="https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/daily_weight.png" width=50% height=50% />
 
 ### Daily changes
 
