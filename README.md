@@ -31,7 +31,7 @@ We cannot allow any primate to fall below a designated weight threshold, as it m
 
 Enter data for the current day
 <br>
-![enter_data](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_data.png?raw=true)
+![enter_data](https://github.com/alechay/MonkeyTrackerV2/blob/master/pics/enter_data.png)
 
 ### Enter missing data
 
