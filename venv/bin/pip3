@@ -1,4 +1,4 @@
-#!/Users/Alec/PycharmProjects/MonkeyTrackerV2/venv/bin/python3
+#!/Users/alechay/python_projects/GitHub/MonkeyTrackerV2/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys
