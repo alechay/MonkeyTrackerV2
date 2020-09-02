@@ -72,13 +72,11 @@ Gives the equations for the best fit lines drawn in the daily change scatterplot
 Tested on macOS Mojave, version 10.14.6. No known bugs at this time.
 
 ## Dependencies
-* Python version 3.7.6
-* PyQt5
-* Datetime
-* os
-* Matplotlib
-* Pandas
-* Numpy
+* See requirements.txt
+
+## To do
+* Increase modularity of code
+* Improve style of code (according to PEP 8 style guide)
 
 ## References
 * Python, PyQt5, Matplotlib, Pandas, Numpy Documentation
